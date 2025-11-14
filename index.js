@@ -6,10 +6,16 @@ const cors = require('cors');
 const multer = require('multer');
 const ffmpeg = require('fluent-ffmpeg');
 const ffmpegPath = require('ffmpeg-static');
-const ffprobePath = require('@ffprobe-installer/ffprobe').path;
 
-ffmpeg.setFfmpegPath(ffmpegPath);
-ffmpeg.setFfprobePath(ffprobePath);
+// Configure ffmpeg binary from ffmpeg-static if available
+if (ffmpegPath) {
+  ffmpeg.setFfmpegPath(ffmpegPath);
+}
+// Configure ffprobe if provided via env, otherwise rely on system PATH
+const ffprobeEnv = process.env.FFPROBE_PATH;
+if (ffprobeEnv) {
+  ffmpeg.setFfprobePath(ffprobeEnv);
+}
 
 const app = express();
 app.use(cors({ origin: '*'}));

@@ -12,7 +12,6 @@
     "dev": "nodemon index.js"
   },
   "dependencies": {
-    "@ffprobe-installer/ffprobe": "^1.5.0",
     "cors": "^2.8.5",
     "express": "^4.18.2",
     "ffmpeg-static": "^5.1.0",
