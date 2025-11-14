@@ -105,38 +105,73 @@ app.post('/mask', upload.single('file'), async (req, res) => {
       return res.status(400).json({ error: 'no_rects' });
     }
 
-    const vf = buildDelogoFilter(rects);
-    if (!vf) {
-      return res.status(400).json({ error: 'empty_filter' });
-    }
+    // Probe video to clamp rectangles into bounds
+    ffmpeg.ffprobe(inputPath, (probeErr, metadata) => {
+      if (probeErr) {
+        console.warn('ffprobe failed, proceeding without clamp:', probeErr && probeErr.message);
+      }
+      let width = 0, height = 0;
+      try {
+        const vstream = (metadata && metadata.streams || []).find(s => s && s.width && s.height) || null;
+        if (vstream) { width = Number(vstream.width) || 0; height = Number(vstream.height) || 0; }
+      } catch {}
 
-    const outName = 'output_' + Date.now() + '_' + crypto.randomBytes(6).toString('hex') + '.mp4';
-    const outPath = path.join(OUTPUT_DIR, outName);
+      let safeRects = rects;
+      if (width > 0 && height > 0) {
+        safeRects = rects.map(r => {
+          const x = Math.min(Math.max(0, Math.round(Number(r.x) || 0)), width - 1);
+          const y = Math.min(Math.max(0, Math.round(Number(r.y) || 0)), height - 1);
+          const maxW = Math.max(1, width - x);
+          const maxH = Math.max(1, height - y);
+          const w = Math.min(Math.max(2, Math.round(Number(r.w) || 1)), maxW);
+          const h = Math.min(Math.max(2, Math.round(Number(r.h) || 1)), maxH);
+          return { x, y, w, h };
+        }).filter(r => r.w >= 2 && r.h >= 2);
+      }
 
-    ffmpeg(inputPath)
-      .videoFilters(vf)
-      .outputOptions([
-        '-c:v libx264',
-        '-crf 18',
-        '-preset slow',
-        '-c:a aac',
-        '-b:a 192k',
-        '-movflags +faststart'
-      ])
-      .on('error', (err) => {
-        console.error('ffmpeg error:', err && err.message);
-        return res.status(500).json({ error: 'ffmpeg_error', message: String(err && err.message || err) });
-      })
-      .on('end', () => {
-        res.setHeader('Content-Type', 'video/mp4');
-        res.sendFile(outPath, (err) => {
-          if (err) {
-            console.error('sendFile error:', err && err.message);
-          }
-          // Keep files for TTL; cleanup job will remove later
-        });
-      })
-      .save(outPath);
+      if (!Array.isArray(safeRects) || safeRects.length === 0) {
+        return res.status(400).json({ error: 'no_rects_after_clamp' });
+      }
+
+      const delogoChain = buildDelogoFilter(safeRects);
+      if (!delogoChain) {
+        return res.status(400).json({ error: 'empty_filter' });
+      }
+      const needsEvenScale = (width > 0 && height > 0 && ((width % 2) === 1 || (height % 2) === 1));
+      const chain = [];
+      if (needsEvenScale) chain.push('scale=ceil(iw/2)*2:ceil(ih/2)*2');
+      chain.push(delogoChain);
+      chain.push('format=yuv420p');
+      const vf = chain.join(',');
+
+      const outName = 'output_' + Date.now() + '_' + crypto.randomBytes(6).toString('hex') + '.mp4';
+      const outPath = path.join(OUTPUT_DIR, outName);
+
+      ffmpeg(inputPath)
+        .outputOptions([
+          '-vf', vf,
+          '-c:v libx264',
+          '-crf 18',
+          '-preset slow',
+          '-c:a aac',
+          '-b:a 192k',
+          '-movflags +faststart'
+        ])
+        .on('error', (err) => {
+          console.error('ffmpeg error:', err && err.message);
+          return res.status(500).json({ error: 'ffmpeg_error', message: String(err && err.message || err) });
+        })
+        .on('end', () => {
+          res.setHeader('Content-Type', 'video/mp4');
+          res.sendFile(outPath, (err) => {
+            if (err) {
+              console.error('sendFile error:', err && err.message);
+            }
+            // Keep files for TTL; cleanup job will remove later
+          });
+        })
+        .save(outPath);
+    });
   } catch (e) {
     console.error('mask handler error:', e);
     res.status(500).json({ error: 'internal_error' });
