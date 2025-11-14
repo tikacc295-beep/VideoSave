@@ -69,6 +69,11 @@ app.get('/health', (req, res) => {
   res.json({ ok: true, ttlMinutes: TTL_MIN, maxFileMb: MAX_FILE_MB });
 });
 
+// Root OK for platform checks
+app.get('/', (req, res) => {
+  res.status(200).json({ ok: true, service: 'mask-service', endpoints: ['GET /', 'GET /health', 'POST /mask'] });
+});
+
 function buildDelogoFilter(rects) {
   if (!Array.isArray(rects)) return '';
   const parts = [];
