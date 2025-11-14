@@ -1,0 +1,22 @@
+{
+  "name": "mask-service",
+  "version": "1.0.0",
+  "description": "Watermark remover backend for SaveFlix (Railway)",
+  "main": "index.js",
+  "license": "MIT",
+  "engines": {
+    "node": ">=18"
+  },
+  "scripts": {
+    "start": "node index.js",
+    "dev": "nodemon index.js"
+  },
+  "dependencies": {
+    "@ffprobe-installer/ffprobe": "^1.5.0",
+    "cors": "^2.8.5",
+    "express": "^4.18.2",
+    "ffmpeg-static": "^5.1.0",
+    "fluent-ffmpeg": "^2.1.2",
+    "multer": "^1.4.5-lts.1"
+  }
+}
