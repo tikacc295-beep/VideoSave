@@ -27,6 +27,7 @@ const MAX_FILE_MB = Number(process.env.MAX_FILE_MB || '300');
 const MAX_FILE_BYTES = MAX_FILE_MB * 1024 * 1024;
 const UPLOAD_DIR = process.env.UPLOAD_DIR || '/tmp/mask_uploads';
 const OUTPUT_DIR = process.env.OUTPUT_DIR || '/tmp/mask_outputs';
+const MAX_OUTPUT_HEIGHT = Number(process.env.MAX_OUTPUT_HEIGHT || '1080');
 
 fs.mkdirSync(UPLOAD_DIR, { recursive: true });
 fs.mkdirSync(OUTPUT_DIR, { recursive: true });
@@ -110,10 +111,12 @@ app.post('/mask', upload.single('file'), async (req, res) => {
       if (probeErr) {
         console.warn('ffprobe failed, proceeding without clamp:', probeErr && probeErr.message);
       }
-      let width = 0, height = 0;
+      let width = 0, height = 0, audioCodec = '';
       try {
         const vstream = (metadata && metadata.streams || []).find(s => s && s.width && s.height) || null;
         if (vstream) { width = Number(vstream.width) || 0; height = Number(vstream.height) || 0; }
+        const astream = (metadata && metadata.streams || []).find(s => s && s.codec_type === 'audio' && s.codec_name) || null;
+        if (astream) { audioCodec = String(astream.codec_name || ''); }
       } catch {}
 
       let safeRects = rects;
@@ -137,28 +140,47 @@ app.post('/mask', upload.single('file'), async (req, res) => {
       if (!delogoChain) {
         return res.status(400).json({ error: 'empty_filter' });
       }
-      const needsEvenScale = (width > 0 && height > 0 && ((width % 2) === 1 || (height % 2) === 1));
       const chain = [];
-      if (needsEvenScale) chain.push('scale=ceil(iw/2)*2:ceil(ih/2)*2');
+      // IMPORTANT: apply delogo at original resolution, then scale/format
       chain.push(delogoChain);
+      if (height > 0 && height > MAX_OUTPUT_HEIGHT) {
+        chain.push(`scale=-2:${MAX_OUTPUT_HEIGHT}`);
+      } else {
+        chain.push('scale=ceil(iw/2)*2:ceil(ih/2)*2');
+      }
       chain.push('format=yuv420p');
       const vf = chain.join(',');
+
+      console.log('mask-service ffmpeg debug:', {
+        width,
+        height,
+        audioCodec,
+        safeRects,
+        vf,
+      });
 
       const outName = 'output_' + Date.now() + '_' + crypto.randomBytes(6).toString('hex') + '.mp4';
       const outPath = path.join(OUTPUT_DIR, outName);
 
+      const outOpts = [
+        '-vf', vf,
+        '-c:v libx264',
+        '-crf 22',
+        '-preset veryfast',
+        '-threads 0',
+        '-movflags +faststart',
+      ];
+      const audioCopy = audioCodec.toLowerCase() === 'aac';
+      if (audioCopy) {
+        outOpts.splice(outOpts.length - 1, 0, '-c:a copy');
+      } else {
+        outOpts.splice(outOpts.length - 1, 0, '-c:a aac', '-b:a 160k');
+      }
+
       ffmpeg(inputPath)
-        .outputOptions([
-          '-vf', vf,
-          '-c:v libx264',
-          '-crf 18',
-          '-preset slow',
-          '-c:a aac',
-          '-b:a 192k',
-          '-movflags +faststart'
-        ])
+        .outputOptions(outOpts)
         .on('error', (err) => {
-          console.error('ffmpeg error:', err && err.message);
+          console.error('ffmpeg error:', err && err.message, 'vf=', vf, 'rects=', safeRects);
           return res.status(500).json({ error: 'ffmpeg_error', message: String(err && err.message || err) });
         })
         .on('end', () => {
