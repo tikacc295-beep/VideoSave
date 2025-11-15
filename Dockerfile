@@ -5,8 +5,8 @@ FROM node:18-slim
 WORKDIR /app
 
 # Install deps first (better layer caching)
-COPY package.json package-lock.json* ./
-RUN npm ci --only=production || npm install --production
+COPY package*.json ./
+RUN npm install --omit=dev
 
 # Copy app
 COPY index.js ./
