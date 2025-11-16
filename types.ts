@@ -1,4 +1,3 @@
-
 export enum IndexingStatus {
   PENDING = 'PENDING',
   SUBMITTED = 'SUBMITTED',
@@ -10,5 +9,5 @@ export interface Page {
   id: string;
   url: string;
   status: IndexingStatus;
-  lastSubmitted: Date | null;
+  lastSubmitted: string | null;
 }

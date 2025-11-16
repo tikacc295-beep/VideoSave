@@ -1,5 +1,5 @@
 {
   "name": "Gemini Auto Indexer",
-  "description": "A web application to manage and automate the indexing of your website pages, enhanced with SEO advice from Gemini.",
+  "description": "A professional dashboard to automatically discover unindexed pages via sitemap, manage indexing queues, and get AI-powered SEO advice.",
   "requestFramePermissions": []
 }

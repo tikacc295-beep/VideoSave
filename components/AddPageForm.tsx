@@ -1,19 +1,17 @@
-
 import React, { useState } from 'react';
 import PlusIcon from './icons/PlusIcon';
 
-interface AddPageFormProps {
+interface ManualAddFormProps {
   onAddPage: (url: string) => void;
 }
 
-const AddPageForm: React.FC<AddPageFormProps> = ({ onAddPage }) => {
+const ManualAddForm: React.FC<ManualAddFormProps> = ({ onAddPage }) => {
   const [url, setUrl] = useState('');
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (url.trim()) {
       try {
-        // Basic URL validation
         new URL(url);
         onAddPage(url.trim());
         setUrl('');
@@ -24,24 +22,24 @@ const AddPageForm: React.FC<AddPageFormProps> = ({ onAddPage }) => {
   };
 
   return (
-    <form onSubmit={handleSubmit} className="flex flex-col sm:flex-row gap-4 items-center">
+    <form onSubmit={handleSubmit} className="flex flex-col sm:flex-row gap-3 items-center">
       <input
         type="url"
         value={url}
         onChange={(e) => setUrl(e.target.value)}
-        placeholder="https://your-website.com/your-page"
-        className="flex-grow w-full bg-gray-700 text-gray-100 border-2 border-gray-600 rounded-lg px-4 py-3 focus:outline-none focus:ring-2 focus:ring-cyan-500 focus:border-cyan-500 transition-all duration-300"
+        placeholder="https://example.com/page"
+        className="flex-grow w-full bg-slate-700 text-slate-100 border-2 border-slate-600 rounded-lg px-4 py-2 focus:outline-none focus:ring-2 focus:ring-indigo-500 transition-all"
         required
       />
       <button
         type="submit"
-        className="w-full sm:w-auto flex items-center justify-center gap-2 bg-cyan-600 hover:bg-cyan-500 text-white font-bold py-3 px-6 rounded-lg transition-colors duration-300 shadow-lg focus:outline-none focus:ring-2 focus:ring-cyan-400 focus:ring-opacity-75"
+        className="w-full sm:w-auto flex items-center justify-center gap-2 bg-indigo-600 hover:bg-indigo-500 text-white font-bold py-2.5 px-5 rounded-lg transition-colors"
       >
         <PlusIcon />
-        Add Page
+        <span>Add</span>
       </button>
     </form>
   );
 };
 
-export default AddPageForm;
+export default ManualAddForm;
